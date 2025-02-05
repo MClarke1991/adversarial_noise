@@ -1,0 +1,17 @@
+Rough plan: 
+
+Find an existing example
+Find a good dataset and model
+Ensure can get untargeted attack working
+Modify to do targeted attack
+Test with different classes (note that ImageNet class diff https://deeplearning.cms.waikato.ac.nz/user-guide/class-maps/IMAGENET/) roughly maps numerical distance to semantic distance
+Package and test
+Try different models and datasets
+
+
+
+
+
+Things to add/bonus if there is time: 
+
+Ensure that label names are simple
