@@ -169,3 +169,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Other
+*.DS_Store
+existing_example/data/
+existing_example/saved_models/
