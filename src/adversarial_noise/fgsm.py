@@ -7,41 +7,64 @@ from transformers import ResNetForImageClassification
 
 def iterative_fast_gradient_sign_target(
     model: ResNetForImageClassification,
-    imgs: torch.Tensor,
-    labels: torch.Tensor,
+    image: torch.Tensor,
     target_label: str,
     label_names: list,
-    epsilon: float = 0.02,
     num_iter: int = 10,
-    alpha: float | None = None,
+    alpha: float = 0.002,
+    verbose: bool = False,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Iterative Fast Gradient Sign Method (FGSM) for targeted attacks.
+
+    Args:
+        model: Image classification model.
+        image: Input images to attack.
+        target_label: Target label for the attack.
+        label_names: List of all label names recognized by the model.
+        num_iter: Number of iterations for the attack.
+        alpha: Step size for noise to add to the image.
+        verbose: Whether to print target and predicted labels.
+
+    Returns:
+        Tuple of adversarial images and noise gradients.
+    """
+    
     if target_label not in label_names:
         raise ValueError(f"Target label {target_label} not found in label_names")
 
     target_label_idx = torch.tensor(model.config.label2id[target_label])
-    target_label_idx = target_label_idx.to(imgs.device)
+    target_label_idx = target_label_idx.to(image.device)
     target_labels = torch.full(
-        (imgs.size(0),), target_label_idx, dtype=torch.long, device=imgs.device
+        (image.size(0),), target_label_idx, dtype=torch.long, device=image.device
     )
-    print(target_labels)
+    if verbose:
+        print(target_labels)
 
-    adv_imgs = imgs.clone()
+    adv_image = image.clone()
 
     for _ in range(num_iter):
-        adv_imgs = adv_imgs.detach().requires_grad_()
-        outputs = model(adv_imgs)
+        adv_image = adv_image.detach().requires_grad_()
+        outputs = model(adv_image)
         logits = outputs.logits
         preds = F.log_softmax(logits, dim=-1)
         loss = -torch.nn.CrossEntropyLoss()(preds, target_labels)
         loss.sum().backward()
 
-        noise_grad = torch.sign(adv_imgs.grad)
-        adv_imgs = adv_imgs + alpha * noise_grad
+        noise_grad = torch.sign(adv_image.grad)
+        adv_image = adv_image + alpha * noise_grad
 
-    noise_grad = adv_imgs - imgs
-    predicted_label = logits.argmax(-1).item()
-    print(model.config.id2label[predicted_label])
-    return adv_imgs.detach(), noise_grad.detach()
+    noise_grad = adv_image - image
+    
+    predicted_id = logits.argmax(-1).item()
+    predicted_label = model.config.id2label[predicted_id]
+    
+    if predicted_label != target_label:
+        print(f"Failed to target {target_label} with {predicted_label}. Increase alpha or num_iter.")
+    
+    if verbose:
+        print(predicted_label)
+    return adv_image.detach(), noise_grad.detach()
 
 def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
     """Convert a normalized tensor to a PIL Image."""
