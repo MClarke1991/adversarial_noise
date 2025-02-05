@@ -30,7 +30,8 @@ def plot_adversarial_results(
 
     # Create subplot figure with 2 rows
     fig = make_subplots(
-        rows=2, cols=3,
+        rows=2,
+        cols=3,
         subplot_titles=("Original", "Adversarial", "Noise", "Top 10 Predictions"),
         row_heights=[0.5, 0.5],
         specs=[
@@ -43,7 +44,7 @@ def plot_adversarial_results(
     fig.add_trace(go.Image(z=orig_img), row=1, col=1)
     fig.add_trace(go.Image(z=adv_img_pil), row=1, col=2)
     fig.add_trace(go.Image(z=noise_img), row=1, col=3)
-    
+
     # Add bar chart to bottom row
     fig.add_trace(
         go.Bar(
@@ -53,7 +54,8 @@ def plot_adversarial_results(
             text=[f"{p:.1f}%" for p in probs],
             textposition="outside",
         ),
-        row=2, col=1
+        row=2,
+        col=1,
     )
 
     # Update layout
