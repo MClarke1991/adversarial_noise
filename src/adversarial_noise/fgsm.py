@@ -90,3 +90,65 @@ def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
 
     # Convert to PIL Image
     return Image.fromarray(img_array)
+
+
+def attack_image(
+    image_path: str | Path,
+    target_label: str,
+    output_path: Optional[str | Path] = None,
+    alpha: float = 0.002,
+    num_iter: int = 10,
+    model_name: str = "microsoft/resnet-34",
+    verbose: bool = False,
+) -> None:
+    """Attack an image from a file and save the result."""
+    # Setup device and model
+    device = get_device()
+    model = ResNetForImageClassification.from_pretrained(model_name).to(device)
+    image_processor = AutoImageProcessor.from_pretrained(model_name)
+    
+    # Load and preprocess image
+    image_tensor = load_and_preprocess_image(image_path, image_processor)
+    image_tensor = image_tensor.to(device)
+    
+    # Get initial prediction
+    with torch.no_grad():
+        initial_logits = model(image_tensor).logits
+        initial_pred = initial_logits.argmax(-1).item()
+        initial_label = model.config.id2label[initial_pred]
+    
+    if verbose:
+        print(f"Initial prediction: {initial_label}")
+    
+    # Get all possible labels
+    label_names = list(model.config.label2id.keys())
+    
+    # Generate adversarial image
+    adv_image, noise = iterative_fast_gradient_sign_target(
+        model=model,
+        image=image_tensor,
+        target_label=target_label,
+        label_names=label_names,
+        num_iter=num_iter,
+        alpha=alpha,
+        verbose=verbose,
+    )
+    
+    # Convert to PIL image and save
+    adv_image_pil = tensor_to_image(adv_image)
+    
+    if output_path is None:
+        # Get final prediction
+        with torch.no_grad():
+            final_logits = model(adv_image).logits
+            final_pred = final_logits.argmax(-1).item()
+            final_label = model.config.id2label[final_pred]
+            
+        # Create output filename based on input with target and achieved labels
+        input_path = Path(image_path)
+        output_path = input_path.parent / f"{input_path.stem}_target_{target_label}_achieved_{final_label}{input_path.suffix}"
+    
+    adv_image_pil.save(output_path)
+    
+    if verbose:
+        print(f"Saved adversarial image to {output_path}")
