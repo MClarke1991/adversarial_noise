@@ -1,4 +1,8 @@
+from pathlib import Path
+
 import torch
+from PIL import Image
+from transformers import AutoImageProcessor
 
 
 def get_device():
@@ -8,6 +12,7 @@ def get_device():
     elif torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
+
 
 def load_and_preprocess_image(
     image_path: str | Path,

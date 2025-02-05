@@ -1,8 +1,46 @@
+from difflib import get_close_matches
+from pathlib import Path
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
-from transformers import ResNetForImageClassification
+from transformers import AutoImageProcessor, ResNetForImageClassification
+
+from adversarial_noise.utils import get_device, load_and_preprocess_image
+
+
+def fuzzy_match_label(
+    target: str, available_labels: list[str], cutoff: float = 0.6
+) -> str:
+    """
+    Find the closest matching label from available labels using fuzzy matching.
+
+    Args:
+        target: The target label to match
+        available_labels: List of valid labels to match against
+        cutoff: Minimum similarity score (0-1) for matches
+
+    Returns:
+        The exact match if found, otherwise the closest matching label
+
+    Raises:
+        ValueError: If no matches found above cutoff threshold
+    """
+    if target in available_labels:
+        return target
+
+    matches = get_close_matches(target, available_labels, n=1, cutoff=cutoff)
+    if not matches:
+        raise ValueError(
+            f"No similar labels found for '{target}'. Available labels: {', '.join(available_labels)}"
+        )
+
+    closest_match = matches[0]
+    print(
+        f"Received target of '{target}' matching to nearest label of '{closest_match}'"
+    )
+    return closest_match
 
 
 def iterative_fast_gradient_sign_target(
@@ -29,9 +67,8 @@ def iterative_fast_gradient_sign_target(
     Returns:
         Tuple of adversarial images and noise gradients.
     """
-    
-    if target_label not in label_names:
-        raise ValueError(f"Target label {target_label} not found in label_names")
+
+    target_label = fuzzy_match_label(target_label, label_names)
 
     target_label_idx = torch.tensor(model.config.label2id[target_label])
     target_label_idx = target_label_idx.to(image.device)
@@ -53,16 +90,19 @@ def iterative_fast_gradient_sign_target(
         adv_image = adv_image + alpha * noise_grad
 
     noise_grad = adv_image - image
-    
+
     predicted_id = logits.argmax(-1).item()
     predicted_label = model.config.id2label[predicted_id]
-    
+
     if predicted_label != target_label:
-        print(f"Failed to target {target_label} with {predicted_label}. Increase alpha or num_iter.")
-    
+        print(
+            f"Failed to target {target_label} with {predicted_label}. Increase alpha or num_iter."
+        )
+
     if verbose:
         print(f"Target label: {target_label}, Achieved label: {predicted_label}")
     return adv_image.detach(), noise_grad.detach()
+
 
 def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
     """Convert a normalized tensor to a PIL Image."""
@@ -95,7 +135,7 @@ def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
 def attack_image(
     image_path: str | Path,
     target_label: str,
-    output_path: Optional[str | Path] = None,
+    output_path: str | Path | None = None,
     alpha: float = 0.002,
     num_iter: int = 10,
     model_name: str = "microsoft/resnet-34",
@@ -106,23 +146,23 @@ def attack_image(
     device = get_device()
     model = ResNetForImageClassification.from_pretrained(model_name).to(device)
     image_processor = AutoImageProcessor.from_pretrained(model_name)
-    
+
     # Load and preprocess image
     image_tensor = load_and_preprocess_image(image_path, image_processor)
     image_tensor = image_tensor.to(device)
-    
+
     # Get initial prediction
     with torch.no_grad():
         initial_logits = model(image_tensor).logits
         initial_pred = initial_logits.argmax(-1).item()
         initial_label = model.config.id2label[initial_pred]
-    
+
     if verbose:
         print(f"Initial prediction: {initial_label}")
-    
+
     # Get all possible labels
     label_names = list(model.config.label2id.keys())
-    
+
     # Generate adversarial image
     adv_image, noise = iterative_fast_gradient_sign_target(
         model=model,
@@ -133,22 +173,25 @@ def attack_image(
         alpha=alpha,
         verbose=verbose,
     )
-    
+
     # Convert to PIL image and save
     adv_image_pil = tensor_to_image(adv_image)
-    
+
     if output_path is None:
         # Get final prediction
         with torch.no_grad():
             final_logits = model(adv_image).logits
             final_pred = final_logits.argmax(-1).item()
             final_label = model.config.id2label[final_pred]
-            
+
         # Create output filename based on input with target and achieved labels
         input_path = Path(image_path)
-        output_path = input_path.parent / f"{input_path.stem}_target_{target_label}_achieved_{final_label}{input_path.suffix}"
-    
+        output_path = (
+            input_path.parent
+            / f"{input_path.stem}_target_{target_label}_achieved_{final_label}{input_path.suffix}"
+        )
+
     adv_image_pil.save(output_path)
-    
+
     if verbose:
         print(f"Saved adversarial image to {output_path}")
