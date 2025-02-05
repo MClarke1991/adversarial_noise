@@ -27,3 +27,4 @@ add comments throughout functions
 write a function to fuzzy match to the class names
 Does the model cope with these https://github.com/hendrycks/natural-adv-examples
 do not rescale adv image?
+early stopping if model converges

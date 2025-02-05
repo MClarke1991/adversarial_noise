@@ -15,6 +15,7 @@ dependencies = [
     "pillow>=11.1.0",
     "pip>=25.0",
     "plotly>=6.0.0",
+    "pytest>=8.3.4",
     "pytorch-lightning>=2.5.0.post0",
     "scipy>=1.15.1",
     "seaborn>=0.13.2",
