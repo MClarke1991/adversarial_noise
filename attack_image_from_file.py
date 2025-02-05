@@ -66,9 +66,15 @@ def attack_image(
     adv_image_pil = tensor_to_image(adv_image)
     
     if output_path is None:
-        # Create output filename based on input
+        # Get final prediction
+        with torch.no_grad():
+            final_logits = model(adv_image).logits
+            final_pred = final_logits.argmax(-1).item()
+            final_label = model.config.id2label[final_pred]
+            
+        # Create output filename based on input with target and achieved labels
         input_path = Path(image_path)
-        output_path = input_path.parent / f"{input_path.stem}_adversarial{input_path.suffix}"
+        output_path = input_path.parent / f"{input_path.stem}_target_{target_label}_achieved_{final_label}{input_path.suffix}"
     
     adv_image_pil.save(output_path)
     
@@ -84,7 +90,7 @@ def main() -> None:
     parser.add_argument("--alpha", type=float, default=0.02, help="Step size for attack")
     parser.add_argument("--num-iter", type=int, default=10, help="Number of iterations")
     parser.add_argument("--model", type=str, default="microsoft/resnet-34", help="Model name")
-    parser.add_argument("--verbose", action="store_true", help="Print additional information")
+    parser.add_argument("--verbose", default=True, action="store_true", help="Print additional information")
     
     args = parser.parse_args()
     

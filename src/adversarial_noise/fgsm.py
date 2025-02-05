@@ -38,8 +38,6 @@ def iterative_fast_gradient_sign_target(
     target_labels = torch.full(
         (image.size(0),), target_label_idx, dtype=torch.long, device=image.device
     )
-    if verbose:
-        print(target_labels)
 
     adv_image = image.clone()
 
@@ -63,7 +61,7 @@ def iterative_fast_gradient_sign_target(
         print(f"Failed to target {target_label} with {predicted_label}. Increase alpha or num_iter.")
     
     if verbose:
-        print(predicted_label)
+        print(f"Target label: {target_label}, Achieved label: {predicted_label}")
     return adv_image.detach(), noise_grad.detach()
 
 def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
