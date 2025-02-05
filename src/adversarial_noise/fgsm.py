@@ -76,6 +76,7 @@ def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
         img_array = img_array[0]
 
     # Denormalize
+    # Note that these apparently hardcoded numbers are from https://pytorch.org/vision/0.9/models.html
     mean = np.array([0.485, 0.456, 0.406])
     std = np.array([0.229, 0.224, 0.225])
     img_array = std[:, None, None] * img_array + mean[:, None, None]
