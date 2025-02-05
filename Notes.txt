@@ -9,6 +9,9 @@ Package and test
 Try different models and datasets
 
 
+Implementation
+Sort out the mix between alpha and epsilon
+
 
 
 
