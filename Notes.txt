@@ -19,3 +19,4 @@ Things to add/bonus if there is time:
 
 Ensure that label names are simple
 add comments throughout functions
+write a function to fuzzy match to the class names

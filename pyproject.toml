@@ -5,18 +5,22 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "datasets>=3.2.0",
     "ipykernel>=6.29.5",
     "jupyter>=1.1.1",
     "matplotlib>=3.10.0",
     "numpy>=2.2.2",
     "pandas>=2.2.3",
+    "pillow>=11.1.0",
     "pip>=25.0",
+    "plotly>=6.0.0",
     "pytorch-lightning>=2.5.0.post0",
     "scipy>=1.15.1",
     "seaborn>=0.13.2",
     "torch>=2.6.0",
     "torchvision>=0.21.0",
     "tqdm>=4.67.1",
+    "transformers>=4.48.2",
 ]
 
 [project.scripts]
