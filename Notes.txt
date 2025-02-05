@@ -11,7 +11,12 @@ Try different models and datasets
 
 Implementation
 Sort out the mix between alpha and epsilon
+remove labels param
+allow user to run from command line image?
 
+
+Notes on restrictions:
+currently can only transition between classes that are in the standard imagenet classes, and assumes the model used is a resnet that has been trained on imagenet
 
 
 
