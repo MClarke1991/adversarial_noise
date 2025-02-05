@@ -53,6 +53,69 @@ def fuzzy_match_label(
     return closest_match
 
 
+# def iterative_fast_gradient_sign_target(
+#     model: ResNetForImageClassification,
+#     image: torch.Tensor,
+#     target_label: str,
+#     label_names: list,
+#     num_iter: int = 10,
+#     alpha: float = 0.002,
+#     verbose: bool = False,
+# ) -> tuple[torch.Tensor, torch.Tensor]:
+#     """
+#     Iterative Fast Gradient Sign Method (FGSM) for targeted attacks.
+
+#     Args:
+#         model: Image classification model.
+#         image: Input images to attack.
+#         target_label: Target label for the attack.
+#         label_names: List of all label names recognized by the model.
+#         num_iter: Number of iterations for the attack.
+#         alpha: Step size for noise to add to the image.
+#         verbose: Whether to print target and predicted labels.
+
+#     Returns:
+#         Tuple of adversarial images and noise gradients.
+#     """
+
+#     target_label = fuzzy_match_label(target_label, label_names)
+
+#     target_label_idx = torch.tensor(model.config.label2id[target_label])
+#     target_label_idx = target_label_idx.to(image.device)
+#     target_labels = torch.full(
+#         (image.size(0),), fill_value=target_label_idx, dtype=torch.long, device=image.device
+#     )
+
+#     adv_image = image.clone()
+
+#     for _ in range(num_iter):
+#         adv_image = adv_image.detach().requires_grad_()
+#         outputs = model(adv_image)
+#         logits = outputs.logits
+#         preds = F.log_softmax(logits, dim=-1)
+#         loss = -torch.nn.CrossEntropyLoss()(preds, target_labels)
+#         loss.sum().backward()
+
+#         if adv_image.grad is None:
+#             raise ValueError("Gradient is None")
+
+#         noise_grad = torch.sign(adv_image.grad)
+#         adv_image = adv_image + alpha * noise_grad
+
+#     noise_grad = adv_image - image
+
+#     predicted_id = logits.argmax(-1).item()
+#     predicted_label = model.config.id2label[predicted_id]
+
+#     if predicted_label != target_label:
+#         print(
+#             f"Failed to target {target_label} with {predicted_label}. Increase alpha or num_iter."
+#         )
+
+#     if verbose:
+#         print(f"Target label: {target_label}, Achieved label: {predicted_label}")
+#     return adv_image.detach(), noise_grad.detach()
+
 def iterative_fast_gradient_sign_target(
     model: ResNetForImageClassification,
     image: torch.Tensor,
@@ -64,10 +127,11 @@ def iterative_fast_gradient_sign_target(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Iterative Fast Gradient Sign Method (FGSM) for targeted attacks.
+    Handles normalization explicitly to ensure adversarial perturbations survive image conversion.
 
     Args:
         model: Image classification model.
-        image: Input images to attack.
+        image: Input images to attack (assumed to be normalized).
         target_label: Target label for the attack.
         label_names: List of all label names recognized by the model.
         num_iter: Number of iterations for the attack.
@@ -77,35 +141,57 @@ def iterative_fast_gradient_sign_target(
     Returns:
         Tuple of adversarial images and noise gradients.
     """
+    # ImageNet normalization constants
+    mean = torch.tensor([0.485, 0.456, 0.406], device=image.device).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225], device=image.device).view(1, 3, 1, 1)
 
     target_label = fuzzy_match_label(target_label, label_names)
-
     target_label_idx = torch.tensor(model.config.label2id[target_label])
     target_label_idx = target_label_idx.to(image.device)
     target_labels = torch.full(
-        (image.size(0),), fill_value=target_label_idx, dtype=torch.long, device=image.device
+        (image.size(0),),
+        fill_value=target_label_idx,
+        dtype=torch.long,
+        device=image.device,
     )
 
-    adv_image = image.clone()
+    # Denormalize the input image to 0-1 range
+    denorm_image = image * std + mean
+    adv_image = denorm_image.clone()
 
     for _ in range(num_iter):
-        adv_image = adv_image.detach().requires_grad_()
-        outputs = model(adv_image)
+        # Normalize the image before model input
+        norm_adv_image = (adv_image - mean) / std
+        norm_adv_image = norm_adv_image.detach().requires_grad_()
+
+        outputs = model(norm_adv_image)
         logits = outputs.logits
         preds = F.log_softmax(logits, dim=-1)
         loss = -torch.nn.CrossEntropyLoss()(preds, target_labels)
         loss.sum().backward()
 
-        if adv_image.grad is None:
+        if norm_adv_image.grad is None:
             raise ValueError("Gradient is None")
 
-        noise_grad = torch.sign(adv_image.grad)
+        # Scale the gradient back to denormalized space
+        scaled_grad = norm_adv_image.grad * std
+        noise_grad = torch.sign(scaled_grad)
+
+        # Update in denormalized space
         adv_image = adv_image + alpha * noise_grad
 
-    noise_grad = adv_image - image
+        # Clip to valid image range
+        adv_image = torch.clamp(adv_image, 0, 1)
 
-    predicted_id = logits.argmax(-1).item()
-    predicted_label = model.config.id2label[predicted_id]
+    # Calculate noise in denormalized space
+    noise_grad = adv_image - denorm_image
+
+    # Final prediction using normalized image
+    final_norm_image = (adv_image - mean) / std
+    with torch.no_grad():
+        final_logits = model(final_norm_image).logits
+        predicted_id = final_logits.argmax(-1).item()
+        predicted_label = model.config.id2label[predicted_id]
 
     if predicted_label != target_label:
         print(
@@ -114,7 +200,10 @@ def iterative_fast_gradient_sign_target(
 
     if verbose:
         print(f"Target label: {target_label}, Achieved label: {predicted_label}")
-    return adv_image.detach(), noise_grad.detach()
+
+    # Return the adversarial image in normalized space to match input
+    normalized_adv_image = (adv_image - mean) / std
+    return normalized_adv_image.detach(), noise_grad.detach()
 
 
 def tensor_to_image(tensor: torch.Tensor) -> Image.Image:
