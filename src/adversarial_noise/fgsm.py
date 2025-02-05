@@ -27,9 +27,21 @@ def fuzzy_match_label(
     Raises:
         ValueError: If no matches found above cutoff threshold
     """
-    if target in available_labels:
-        return target
+    # First try exact match
+    if target.lower() in [label.lower() for label in available_labels]:
+        return next(label for label in available_labels if label.lower() == target.lower())
+    
+    # Try substring matching first
+    substring_matches = [
+        label for label in available_labels 
+        if target.lower() in label.lower() or label.lower() in target.lower()
+    ]
+    if substring_matches:
+        closest_match = substring_matches[0]
+        print(f"Found substring match: '{target}' → '{closest_match}'")
+        return closest_match
 
+    # Fall back to difflib matching
     matches = get_close_matches(target, available_labels, n=1, cutoff=cutoff)
     if not matches:
         raise ValueError(
@@ -37,9 +49,7 @@ def fuzzy_match_label(
         )
 
     closest_match = matches[0]
-    print(
-        f"Received target of '{target}' matching to nearest label of '{closest_match}'"
-    )
+    print(f"Using fuzzy match: '{target}' → '{closest_match}'")
     return closest_match
 
 
@@ -73,7 +83,7 @@ def iterative_fast_gradient_sign_target(
     target_label_idx = torch.tensor(model.config.label2id[target_label])
     target_label_idx = target_label_idx.to(image.device)
     target_labels = torch.full(
-        (image.size(0),), target_label_idx, dtype=torch.long, device=image.device
+        (image.size(0),), fill_value=target_label_idx, dtype=torch.long, device=image.device
     )
 
     adv_image = image.clone()
@@ -85,6 +95,9 @@ def iterative_fast_gradient_sign_target(
         preds = F.log_softmax(logits, dim=-1)
         loss = -torch.nn.CrossEntropyLoss()(preds, target_labels)
         loss.sum().backward()
+
+        if adv_image.grad is None:
+            raise ValueError("Gradient is None")
 
         noise_grad = torch.sign(adv_image.grad)
         adv_image = adv_image + alpha * noise_grad
