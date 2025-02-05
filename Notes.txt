@@ -15,3 +15,4 @@ Try different models and datasets
 Things to add/bonus if there is time: 
 
 Ensure that label names are simple
+add comments throughout functions
