@@ -8,4 +8,8 @@ To run adversarial attack from an image file, run `uv run attack_image_from_file
 
 By default, filename includes target and achieved labels.
 
+Limitations:
+- Currently only works for ImageNet classes
+- Assumes model is a ResNet
+
 This project uses data from [ImageNet](https://paperswithcode.com/dataset/imagenet) from [HuggingFace](https://huggingface.co/datasets/zh-plus/tiny-imagenet) as well as [Cats](https://huggingface.co/datasets/huggingface/cats-image) from [HuggingFace](https://huggingface.co/datasets/huggingface/cats-image).

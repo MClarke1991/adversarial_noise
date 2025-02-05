@@ -1,22 +1,22 @@
 Rough plan: 
 
-Find an existing example
-Find a good dataset and model
-Ensure can get untargeted attack working
-Modify to do targeted attack
-Test with different classes (note that ImageNet class diff https://deeplearning.cms.waikato.ac.nz/user-guide/class-maps/IMAGENET/) roughly maps numerical distance to semantic distance
-Package and test
-Try different models and datasets
+Find an existing example /
+Find a good dataset and model /
+Ensure can get untargeted attack working /
+Modify to do targeted attack /
+Test with different classes (note that ImageNet class diff https://deeplearning.cms.waikato.ac.nz/user-guide/class-maps/IMAGENET/) roughly maps numerical distance to semantic distance /
+Package and test /
+Try different models and datasets /
 
 
 Implementation
-Sort out the mix between alpha and epsilon
-remove labels param
-allow user to run from command line image?
+Sort out the mix between alpha and epsilon /
+remove labels param /
+allow user to run from command line image? /
 
 
 Notes on restrictions:
-currently can only transition between classes that are in the standard imagenet classes, and assumes the model used is a resnet that has been trained on imagenet
+currently can only transition between classes that are in the standard imagenet classes, and assumes the model used is a resnet that has been trained on imagenet / 
 
 
 
