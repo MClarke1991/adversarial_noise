@@ -16,7 +16,7 @@ def load_and_preprocess_image(
 ) -> torch.Tensor:
     """Load and preprocess an image for the model."""
     image = Image.open(image_path).convert("RGB")
-    inputs = image_processor(image, return_tensors="pt")
+    inputs = image_processor(image, return_tensors="pt", use_fast=False)
     return inputs.pixel_values
 
 
